@@ -9,6 +9,7 @@ import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Handler;
 import android.preference.PreferenceManager;
 
 import android.support.v7.app.AppCompatActivity;
@@ -38,6 +39,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class MainActivity extends AppCompatActivity  {
     AccessServiceAPI m_AccessServiceAPI;
@@ -73,49 +76,26 @@ public class MainActivity extends AppCompatActivity  {
 
         System.out.println(settingsPreferences.getBoolean("checkIsChanged",false));
 
-        if(settingsPreferences.getInt("numberOfCategories", 0) == 0) {
+        if(settingsPreferences.getInt("numberOfCategories", 0) == 0  && isConn()) {
             settingsPreferences.edit().putLong("interval", 86400000).apply();
-                new TaskSetDefaultCateogries().execute();
 
+                new TaskSetDefaultCateogries().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
 
             for (int v = 0; v < (settingsPreferences.getInt("numberOfCheckedCategories", 0)); v++) {
                 if (settingsPreferences.getInt("checkedCategoryId " + v, 0) != 0) {
-                    progressBar.setVisibility(View.VISIBLE);
-                    System.out.println(settingsPreferences.getInt("checkedCategoryId "+v,0)+"Before the task show for the first time");
-                    System.out.println(settingsPreferences.getString("checkedCategoryTitle "+v,""));
-                        new TaskShowOffersFromCategories().execute(String.valueOf(settingsPreferences.getInt("checkedCategoryId " + v, 0)));
-
+                    System.out.println(settingsPreferences.getInt("checkedCategoryId " + v, 0) + "Before the task show for the first time");
+                    System.out.println(settingsPreferences.getString("checkedCategoryTitle " + v, ""));
+                    new TaskShowOffersFromCategories().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, String.valueOf(settingsPreferences.getInt("checkedCategoryId " + v, 0)));
                 }
-
-
             }
+        }else if(settingsPreferences.getInt("numberOfCategories", 0) == 0  && !isConn()){
+            Toast.makeText(this,"You Have To Be Connected To The Internet The First Time",Toast.LENGTH_LONG).show();
         }
 
-        System.out.println("this is the interval" + settingsPreferences.getLong("interval", 0));
-
-        System.out.println(settingsPreferences.getInt("numberOfCategories", 0));
-        if (settingsPreferences.getBoolean("checkIsChanged", true)) {
-            System.out.println(settingsPreferences.getInt("numberOfCheckedCategories", 0));
-                for (int v = 0; v < (settingsPreferences.getInt("numberOfCheckedCategories", 0)); v++) {
-                    if (settingsPreferences.getInt("checkedCategoryId " + v, 0) != 0) {
-
-                        progressBar.setVisibility(View.VISIBLE);
-                        System.out.println(settingsPreferences.getInt("checkedCategoryId "+v,0)+"Before the task show for the other times");
-                        System.out.println(settingsPreferences.getString("checkedCategoryTitle "+v,""));
-                            new TaskShowOffersFromCategories().execute(String.valueOf(settingsPreferences.getInt("checkedCategoryId " + v, 0)));
-
-
-                    }
-
-                }
-        }
-
-        Thread t = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                System.out.println("The Beginning Of The Thread");
-
-                if (!(settingsPreferences.getInt("numberOfCheckedCategories", 0) == 0)) {
+        else {
+            Thread thread = new Thread() {
+                @Override
+                public void run() {
                     for (int i = 0; i < settingsPreferences.getInt("numberOfOffers", 0); i++) {
 
                         JobOffer jobOffer = new JobOffer();
@@ -126,24 +106,24 @@ public class MainActivity extends AppCompatActivity  {
 
                         jobOffer.setDownloaded(settingsPreferences.getString("offerDownloaded " + i, ""));
                         offers.add(jobOffer);
-
                     }
                     System.out.println(offers.toString());
-
                     JobOfferAdapter jobOfferAdapter = new JobOfferAdapter(getApplicationContext(), offers);
-
                     lv.setAdapter(jobOfferAdapter);
                 }
-            }
-        });
-        t.start(); // spawn thread
+            };
 
-        try {
-            t.join(2000); // wait for thread to finish
-        } catch (InterruptedException e) {
-            e.printStackTrace();
+            thread.start();
+            try {
+                thread.join(2000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
         }
+
     }
+
 
 
 
@@ -209,9 +189,29 @@ public class MainActivity extends AppCompatActivity  {
                     settingsPreferences.edit().putInt("numberOfOffers",5).apply();
             }
 
+            if (!(settingsPreferences.getInt("numberOfCheckedCategories", 0) == 0)) {
+                for (int i = 0; i < settingsPreferences.getInt("numberOfOffers", 0); i++) {
+
+                    JobOffer jobOffer = new JobOffer();
+                    jobOffer.setId(settingsPreferences.getInt("offerId " + i, 0));
+                    jobOffer.setCatid(settingsPreferences.getInt("offerCatid " + i, 0));
+                    jobOffer.setTitle(settingsPreferences.getString("offerTitle " + i, ""));
+                    jobOffer.setDate(new Date(settingsPreferences.getLong("offerDate " + i, 0)));
+
+                    jobOffer.setDownloaded(settingsPreferences.getString("offerDownloaded " + i, ""));
+                    offers.add(jobOffer);
+
+                }
+                System.out.println(offers.toString());
+
+                JobOfferAdapter jobOfferAdapter = new JobOfferAdapter(getApplicationContext(), offers);
+
+                lv.setAdapter(jobOfferAdapter);
+
+            }
 
 
-            progressBar.setVisibility(View.GONE);
+
 
 
 
