@@ -2,6 +2,8 @@ package com.example.mastermind.testapp;
 
 
 import android.app.Activity;
+import android.app.AlarmManager;
+import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -12,9 +14,11 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.preference.PreferenceManager;
 
+import android.support.v4.app.NotificationCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -22,6 +26,11 @@ import android.view.MenuItem;
 import android.widget.ListView;
 import android.widget.ProgressBar;
 import android.widget.Toast;
+
+import com.nex3z.notificationbadge.NotificationBadge;
+import com.txusballesteros.bubbles.BubbleLayout;
+import com.txusballesteros.bubbles.BubblesManager;
+import com.txusballesteros.bubbles.OnInitializedCallback;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -46,8 +55,17 @@ public class MainActivity extends AppCompatActivity  {
     AccessServiceAPI m_AccessServiceAPI;
     SharedPreferences settingsPreferences;
     ArrayList<JobOffer> offers;
-    private ProgressBar progressBar;
     ArrayList<JobOffer> asyncOffers;
+    private int MY_PERMISSION = 1000;
+    private BubblesManager bubblesManager;
+    private NotificationBadge mBadge;
+    private int count;
+
+    NotificationCompat.Builder notification;
+    private static final int uniqueID = 45612;
+
+    private PendingIntent pendingIntentA;
+
 
     ListView lv;
     DateFormat format;
@@ -61,11 +79,10 @@ public class MainActivity extends AppCompatActivity  {
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         toolbar.setTitle("Datalabs");
         setSupportActionBar(toolbar);
-        progressBar = findViewById(R.id.progressBar);
         lv = findViewById(R.id.listView);
         m_AccessServiceAPI = new AccessServiceAPI();
         asyncOffers = new ArrayList<>();
-        offers = new  ArrayList<>();
+        offers = new ArrayList<>();
         format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
         settingsPreferences = PreferenceManager.getDefaultSharedPreferences(this);
@@ -73,13 +90,12 @@ public class MainActivity extends AppCompatActivity  {
         System.out.println(settingsPreferences.getInt("numberOfCheckedCategories", 0) == 0);
 
 
+        System.out.println(settingsPreferences.getBoolean("checkIsChanged", false));
 
-        System.out.println(settingsPreferences.getBoolean("checkIsChanged",false));
-
-        if(settingsPreferences.getInt("numberOfCategories", 0) == 0  && isConn()) {
+        if (settingsPreferences.getInt("numberOfCategories", 0) == 0 && isConn()) {
             settingsPreferences.edit().putLong("interval", 86400000).apply();
 
-                new TaskSetDefaultCateogries().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+            new TaskSetDefaultCateogries().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
 
             for (int v = 0; v < (settingsPreferences.getInt("numberOfCheckedCategories", 0)); v++) {
                 if (settingsPreferences.getInt("checkedCategoryId " + v, 0) != 0) {
@@ -88,11 +104,9 @@ public class MainActivity extends AppCompatActivity  {
                     new TaskShowOffersFromCategories().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, String.valueOf(settingsPreferences.getInt("checkedCategoryId " + v, 0)));
                 }
             }
-        }else if(settingsPreferences.getInt("numberOfCategories", 0) == 0  && !isConn()){
-            Toast.makeText(this,"You Have To Be Connected To The Internet The First Time",Toast.LENGTH_LONG).show();
-        }
-
-        else {
+        } else if (settingsPreferences.getInt("numberOfCategories", 0) == 0 && !isConn()) {
+            Toast.makeText(this, "You Have To Be Connected To The Internet The First Time", Toast.LENGTH_LONG).show();
+        } else {
             Thread thread = new Thread() {
                 @Override
                 public void run() {
@@ -121,8 +135,27 @@ public class MainActivity extends AppCompatActivity  {
             }
 
         }
-
+        start();
     }
+
+    public void start() {
+
+        AlarmManager manager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+
+        Intent alarmIntent = new Intent(MainActivity.this, AlarmReceiver.class);
+        pendingIntentA = PendingIntent.getBroadcast(MainActivity.this, 0, alarmIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+        manager.setInexactRepeating(AlarmManager.RTC_WAKEUP, System.currentTimeMillis(), 6000, pendingIntentA);
+
+        Toast.makeText(this, "Alarm Set", Toast.LENGTH_SHORT).show();
+    }
+
+    public void cancel() {
+        AlarmManager manager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+        manager.cancel(pendingIntentA);
+        Toast.makeText(this, "Alarm Canceled", Toast.LENGTH_SHORT).show();
+    }
+
+
 
 
 
@@ -188,6 +221,9 @@ public class MainActivity extends AppCompatActivity  {
                 }else
                     settingsPreferences.edit().putInt("numberOfOffers",5).apply();
             }
+
+            settingsPreferences.edit().putLong("lastSeenDate",fiveOffers.get(settingsPreferences.getInt("numberOfOffers",0)-1).getDate().getTime()).apply();
+            System.out.println(settingsPreferences.getLong("lastSeenDate",0));
 
             if (!(settingsPreferences.getInt("numberOfCheckedCategories", 0) == 0)) {
                 for (int i = 0; i < settingsPreferences.getInt("numberOfOffers", 0); i++) {
@@ -283,6 +319,47 @@ public class MainActivity extends AppCompatActivity  {
         Log.d("connection", "Wifi connected: " + isWifiConn);
         Log.d("connection", "Mobile connected: " + isMobileConn);
         return isWifiConn || isMobileConn;
+    }
+
+    private void initBubble(){
+        bubblesManager = new BubblesManager.Builder(this)
+                .setTrashLayout(R.layout.bubble_remove)
+                .setInitializationCallback(new OnInitializedCallback() {
+                    @Override
+                    public void onInitialized() {
+                        count=0;
+                    }
+                }).build();
+        bubblesManager.initialize();
+    }
+
+    private void addNewBubble(int count){
+        BubbleLayout bubbleView = (BubbleLayout) LayoutInflater.from(this)
+                .inflate(R.layout.bubble_layout,null);
+        mBadge = (NotificationBadge) bubbleView.findViewById(R.id.badge);
+        mBadge.setNumber(count);
+
+        bubbleView.setOnBubbleRemoveListener(new BubbleLayout.OnBubbleRemoveListener() {
+            @Override
+            public void onBubbleRemoved(BubbleLayout bubble) {
+                Toast.makeText(MainActivity.this, "Removed", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        bubbleView.setOnBubbleClickListener(new BubbleLayout.OnBubbleClickListener() {
+            @Override
+            public void onBubbleClick(BubbleLayout bubble) {
+                Toast.makeText(MainActivity.this,"Clicked",Toast.LENGTH_SHORT).show();
+                Intent intent = new Intent(MainActivity.this,MainActivity.class);
+                startActivity(intent);
+
+            }
+        });
+
+
+        bubblesManager.addBubble(bubbleView,60,20);
+
+
     }
 
 }
