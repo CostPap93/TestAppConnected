@@ -44,9 +44,6 @@ import java.util.Map;
 import static android.content.Context.MODE_PRIVATE;
 import static android.content.Context.NOTIFICATION_SERVICE;
 
-/**
- * Created by mastermind on 23/4/2018.
- */
 
 public class AlarmReceiver extends BroadcastReceiver {
 
