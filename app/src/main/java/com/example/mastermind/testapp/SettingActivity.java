@@ -1,5 +1,7 @@
 package com.example.mastermind.testapp;
 
+import android.app.AlarmManager;
+import android.app.PendingIntent;
 import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.Intent;
@@ -36,6 +38,7 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 
 /**
@@ -54,6 +57,7 @@ public class SettingActivity  extends AppCompatActivity {
     ArrayList<JobOffer> asyncOffers;
     ArrayList<OfferCategory> categories;
     SimpleDateFormat format;
+    PendingIntent pendingIntentA;
 
 
     @Override
@@ -92,14 +96,12 @@ public class SettingActivity  extends AppCompatActivity {
 
 
             checkBoxAdapter.notifyDataSetChanged();
-        } else {
-            Toast.makeText(this, "You have to be connected to get the categories", Toast.LENGTH_LONG);
-        }
 
+    }
 
-        if (settingsPreferences.getLong("interval", 0) == 86400000) {
+        if (settingsPreferences.getLong("interval", 0) == 1000) {
             radioButton.setChecked(true);
-        } else if (settingsPreferences.getLong("interval", 0) == 604800000) {
+        } else if (settingsPreferences.getLong("interval", 0) == 6000) {
             radioButton1.setChecked(true);
         } else {
             radioButton2.setChecked(true);
@@ -114,65 +116,73 @@ public class SettingActivity  extends AppCompatActivity {
         ArrayList<OfferCategory> offerCategories = new ArrayList<>();
         OfferCategory offerCategory;
 
-        for(int j=0;j<settingsPreferences.getInt("numberOfCategories",0);j++){
-            System.out.println(settingsPreferences.getString("checkedCategoryTitle "+j,"") + "Removed from checked categories");
-            settingsPreferences.edit().remove("checkedCatergoryId "+j).apply();
-            settingsPreferences.edit().remove("checkedCatergoryTitle "+j).apply();
-        }
+        if(isConn()) {
 
-        for(int i=0;i<lv.getChildCount();i++){
-            checkBox = lv.getChildAt(i).findViewById(R.id.chbox_category);
-            offerCategory =(OfferCategory) lv.getAdapter().getItem(i);
-            if(checkBox.isChecked() && !offerCategories.contains(offerCategory)){
-
-                offerCategories.add(offerCategory);
+            cancel();
+            for (int j = 0; j < settingsPreferences.getInt("numberOfCategories", 0); j++) {
+                System.out.println(settingsPreferences.getString("checkedCategoryTitle " + j, "") + "Removed from checked categories");
+                settingsPreferences.edit().remove("checkedCatergoryId " + j).apply();
+                settingsPreferences.edit().remove("checkedCatergoryTitle " + j).apply();
             }
-        }
 
-        System.out.println(offerCategories.size());
-        for(OfferCategory oc:offerCategories){
-            System.out.println(settingsPreferences.getString("checkedCategoryTitle "+offerCategories.indexOf(oc),"")+"Previously in checked categories");
-            settingsPreferences.edit().putInt("checkedCategoryId "+offerCategories.indexOf(oc),oc.getCatid()).apply();
-            settingsPreferences.edit().putString("checkedCategoryTitle "+offerCategories.indexOf(oc),oc.getTitle()).apply();
-            System.out.println(settingsPreferences.getString("checkedCategoryTitle "+offerCategories.indexOf(oc),"") +"Added to checked categories");
+            for (int i = 0; i < lv.getChildCount(); i++) {
+                checkBox = lv.getChildAt(i).findViewById(R.id.chbox_category);
+                offerCategory = (OfferCategory) lv.getAdapter().getItem(i);
+                if (checkBox.isChecked() && !offerCategories.contains(offerCategory)) {
 
-        }
-
-        System.out.println(offerCategories.toString());
-
-        settingsPreferences.edit().putInt("numberOfCheckedCategories",offerCategories.size()).apply();
-
-
-        System.out.println(settingsPreferences.getInt("numberOfCheckedCategories", 0)+"in the settings taskshow");
-        for (int v = 0; v < (settingsPreferences.getInt("numberOfCheckedCategories", 0)); v++) {
-            if (settingsPreferences.getInt("checkedCategoryId " + v, 0) != 0) {
-                new TaskShowOffersFromCategories().execute(String.valueOf(settingsPreferences.getInt("checkedCategoryId " + v, 0))).get();
+                    offerCategories.add(offerCategory);
+                }
             }
-        }
-
-
-
-
-
-        if (radioButton.isChecked()) {
-            if (!(settingsPreferences.getLong("interval", 0) == 86400000)) {
-                settingsPreferences.edit().putLong("interval", 86400000).apply();
+            System.out.println(offerCategories.size());
+            for (OfferCategory oc : offerCategories) {
+                System.out.println(settingsPreferences.getString("checkedCategoryTitle " + offerCategories.indexOf(oc), "") + "Previously in checked categories");
+                settingsPreferences.edit().putInt("checkedCategoryId " + offerCategories.indexOf(oc), oc.getCatid()).apply();
+                settingsPreferences.edit().putString("checkedCategoryTitle " + offerCategories.indexOf(oc), oc.getTitle()).apply();
+                System.out.println(settingsPreferences.getString("checkedCategoryTitle " + offerCategories.indexOf(oc), "") + "Added to checked categories");
 
             }
-        } else if (radioButton1.isChecked()) {
-            if (!(settingsPreferences.getLong("interval", 0) == 604800000)) {
-                settingsPreferences.edit().putLong("interval", 604800000).apply();
+            System.out.println(offerCategories.toString());
 
-            }
-        } else {
-            if (!(settingsPreferences.getLong("interval", 0) == 302400000)) {
-                settingsPreferences.edit().putLong("interval", 302400000).apply();
+            settingsPreferences.edit().putInt("numberOfCheckedCategories", offerCategories.size()).apply();
 
+            System.out.println(settingsPreferences.getInt("numberOfCheckedCategories", 0) + "in the settings taskshow");
+            for (int v = 0; v < (settingsPreferences.getInt("numberOfCheckedCategories", 0)); v++) {
+                if (settingsPreferences.getInt("checkedCategoryId " + v, 0) != 0) {
+                    new TaskShowOffersFromCategories().execute(String.valueOf(settingsPreferences.getInt("checkedCategoryId " + v, 0))).get();
+                }
             }
+
+
+            if (radioButton.isChecked()) {
+                if (!(settingsPreferences.getLong("interval", 0) == 1000)) {
+                    settingsPreferences.edit().putLong("interval", 1000).apply();
+
+                }
+            } else if (radioButton1.isChecked()) {
+                if (!(settingsPreferences.getLong("interval", 0) == 6000)) {
+                    settingsPreferences.edit().putLong("interval", 6000).apply();
+
+                }
+            } else {
+                if (!(settingsPreferences.getLong("interval", 0) == 10000)) {
+                    settingsPreferences.edit().putLong("interval", 10000).apply();
+
+                }
+            }
+
+            System.out.println(settingsPreferences.getLong("interval", 0));
+
+            start();
+
+            Intent intent = new Intent(SettingActivity.this, MainActivity.class);
+            startActivity(intent);
+
+        }  else {
+            Toast.makeText(SettingActivity.this, "You Have To Be Connected To Reset", Toast.LENGTH_LONG).show();
+            Intent intent = new Intent(getApplicationContext(), SettingActivity.class);
+            startActivity(intent);
         }
 
-        Intent intent = new Intent(SettingActivity.this, MainActivity.class);
-        startActivity(intent);
     }
 
     public void btnCancelClicked(View view) {
@@ -180,12 +190,12 @@ public class SettingActivity  extends AppCompatActivity {
         startActivity(intent);
     }
 
-    public void btnResetClicked(View view){
+    public void btnResetClicked(View view) throws ExecutionException, InterruptedException {
 
         if(isConn()) {
             settingsPreferences.edit().clear().apply();
-            settingsPreferences.edit().putLong("interval", 86400000).apply();
-            new TaskSetDefaultCateogries().execute();
+            settingsPreferences.edit().putLong("interval", 1000).apply();
+            new TaskSetDefaultCateogries().execute().get();
 
             for (int v = 0; v < (settingsPreferences.getInt("numberOfCheckedCategories", 0)); v++) {
                 if (settingsPreferences.getInt("checkedCategoryId " + v, 0) != 0) {
@@ -202,9 +212,9 @@ public class SettingActivity  extends AppCompatActivity {
             }
         }else{
             Toast.makeText(SettingActivity.this,"You Have To Be Connected To Reset",Toast.LENGTH_LONG).show();
+            Intent intent = new Intent(getApplicationContext(),SettingActivity.class);
+            startActivity(intent);
         }
-        Intent intent = new Intent(SettingActivity.this,MainActivity.class);
-        startActivity(intent);
     }
 
     public class TaskShowOffersFromCategories extends AsyncTask<String, Integer, ArrayList<JobOffer>> {
@@ -246,14 +256,22 @@ public class SettingActivity  extends AppCompatActivity {
                     settingsPreferences.edit().putInt("numberOfOffers",5).apply();
 
             }
-            settingsPreferences.edit().putLong("lastSeenDate",fiveOffers.get(settingsPreferences.getInt("numberOfOffers",0)-1).getDate().getTime()).apply();
+            settingsPreferences.edit().putLong("lastSeenDate",fiveOffers.get(0).getDate().getTime()).apply();
             System.out.println(settingsPreferences.getLong("lastSeenDate",0));
+            Intent intent = new Intent(getApplicationContext(),MainActivity.class);
+            startActivity(intent);
 
 
         }
 
         @Override
         protected ArrayList<JobOffer> doInBackground(String... params) {
+
+            try {
+                Thread.sleep(200);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
             Map<String, String> postParam = new HashMap<>();
             postParam.put("action", "showOffersFromCategory");
             postParam.put("jacat_id", params[0]);
@@ -326,5 +344,25 @@ public class SettingActivity  extends AppCompatActivity {
         Log.d("connection", "Mobile connected: " + isMobileConn);
         return isWifiConn || isMobileConn;
     }
+
+    public void start() {
+
+        AlarmManager manager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+
+        Intent alarmIntent = new Intent(SettingActivity.this, AlarmReceiver.class);
+        pendingIntentA = PendingIntent.getBroadcast(SettingActivity.this, 0, alarmIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+        manager.setInexactRepeating(AlarmManager.RTC_WAKEUP, System.currentTimeMillis(), settingsPreferences.getLong("interval",0), pendingIntentA);
+
+        Toast.makeText(this, "Alarm Set", Toast.LENGTH_SHORT).show();
+    }
+
+    public void cancel() {
+        Intent alarmIntent = new Intent(SettingActivity.this, AlarmReceiver.class);
+        AlarmManager manager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+        manager.cancel(PendingIntent.getBroadcast(SettingActivity.this,0,alarmIntent,PendingIntent.FLAG_UPDATE_CURRENT));
+        Toast.makeText(this, "Alarm Canceled", Toast.LENGTH_SHORT).show();
+    }
+
+
 }
 

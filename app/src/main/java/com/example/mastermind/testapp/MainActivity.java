@@ -6,6 +6,7 @@ import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
@@ -85,6 +86,8 @@ public class MainActivity extends AppCompatActivity  {
         offers = new ArrayList<>();
         format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
+        registerReceiver(new ConnectivityChangeReceiver(),new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION));
+
         settingsPreferences = PreferenceManager.getDefaultSharedPreferences(this);
         System.out.println(settingsPreferences.getInt("numberOfCategories", 0) == 0);
         System.out.println(settingsPreferences.getInt("numberOfCheckedCategories", 0) == 0);
@@ -92,72 +95,37 @@ public class MainActivity extends AppCompatActivity  {
 
         System.out.println(settingsPreferences.getBoolean("checkIsChanged", false));
 
-        if (settingsPreferences.getInt("numberOfCategories", 0) == 0 && isConn()) {
-            settingsPreferences.edit().putLong("interval", 86400000).apply();
+        if(getIntent().hasExtra("source")){
+            for (int i = 0; i < settingsPreferences.getInt("numberOfUnseenOffers", 0); i++) {
 
-            new TaskSetDefaultCateogries().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
-
-            for (int v = 0; v < (settingsPreferences.getInt("numberOfCheckedCategories", 0)); v++) {
-                if (settingsPreferences.getInt("checkedCategoryId " + v, 0) != 0) {
-                    System.out.println(settingsPreferences.getInt("checkedCategoryId " + v, 0) + "Before the task show for the first time");
-                    System.out.println(settingsPreferences.getString("checkedCategoryTitle " + v, ""));
-                    new TaskShowOffersFromCategories().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, String.valueOf(settingsPreferences.getInt("checkedCategoryId " + v, 0)));
-                }
+                JobOffer jobOffer = new JobOffer();
+                jobOffer.setId(settingsPreferences.getInt("offerId " + i, 0));
+                jobOffer.setCatid(settingsPreferences.getInt("offerCatid " + i, 0));
+                jobOffer.setTitle(settingsPreferences.getString("offerTitle " + i, ""));
+                jobOffer.setDate(new Date(settingsPreferences.getLong("offerDate " + i, 0)));
+                jobOffer.setDownloaded(settingsPreferences.getString("offerDownloaded " + i, ""));
+                offers.add(jobOffer);
             }
-        } else if (settingsPreferences.getInt("numberOfCategories", 0) == 0 && !isConn()) {
-            Toast.makeText(this, "You Have To Be Connected To The Internet The First Time", Toast.LENGTH_LONG).show();
-        } else {
-            Thread thread = new Thread() {
-                @Override
-                public void run() {
-                    for (int i = 0; i < settingsPreferences.getInt("numberOfOffers", 0); i++) {
+        }else {
 
-                        JobOffer jobOffer = new JobOffer();
-                        jobOffer.setId(settingsPreferences.getInt("offerId " + i, 0));
-                        jobOffer.setCatid(settingsPreferences.getInt("offerCatid " + i, 0));
-                        jobOffer.setTitle(settingsPreferences.getString("offerTitle " + i, ""));
-                        jobOffer.setDate(new Date(settingsPreferences.getLong("offerDate " + i, 0)));
+            for (int i = 0; i < settingsPreferences.getInt("numberOfOffers", 0); i++) {
 
-                        jobOffer.setDownloaded(settingsPreferences.getString("offerDownloaded " + i, ""));
-                        offers.add(jobOffer);
-                    }
-                    System.out.println(offers.toString());
-                    JobOfferAdapter jobOfferAdapter = new JobOfferAdapter(getApplicationContext(), offers);
-                    lv.setAdapter(jobOfferAdapter);
-                }
-            };
-
-            thread.start();
-            try {
-                thread.join(2000);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
+                JobOffer jobOffer = new JobOffer();
+                jobOffer.setId(settingsPreferences.getInt("offerId " + i, 0));
+                jobOffer.setCatid(settingsPreferences.getInt("offerCatid " + i, 0));
+                jobOffer.setTitle(settingsPreferences.getString("offerTitle " + i, ""));
+                jobOffer.setDate(new Date(settingsPreferences.getLong("offerDate " + i, 0)));
+                jobOffer.setDownloaded(settingsPreferences.getString("offerDownloaded " + i, ""));
+                offers.add(jobOffer);
             }
-
         }
-        start();
+        System.out.println(offers.toString());
+        JobOfferAdapter jobOfferAdapter = new JobOfferAdapter(getApplicationContext(), offers);
+        lv.setAdapter(jobOfferAdapter);
+        System.out.println(settingsPreferences.getLong("interval",0));
+
+
     }
-
-    public void start() {
-
-        AlarmManager manager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
-
-        Intent alarmIntent = new Intent(MainActivity.this, AlarmReceiver.class);
-        pendingIntentA = PendingIntent.getBroadcast(MainActivity.this, 0, alarmIntent, PendingIntent.FLAG_UPDATE_CURRENT);
-        manager.setInexactRepeating(AlarmManager.RTC_WAKEUP, System.currentTimeMillis(), 6000, pendingIntentA);
-
-        Toast.makeText(this, "Alarm Set", Toast.LENGTH_SHORT).show();
-    }
-
-    public void cancel() {
-        AlarmManager manager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
-        manager.cancel(pendingIntentA);
-        Toast.makeText(this, "Alarm Canceled", Toast.LENGTH_SHORT).show();
-    }
-
-
-
-
 
 
     @Override
