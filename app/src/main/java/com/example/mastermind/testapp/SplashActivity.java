@@ -5,6 +5,7 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
@@ -52,6 +53,9 @@ public class SplashActivity extends AppCompatActivity {
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_splash);
+        m_AccessServiceAPI = new AccessServiceAPI();
+
+        registerReceiver(new ConnectivityChangeReceiver(),new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION));
 
         if(Build.VERSION.SDK_INT>=23){
             if(!Settings.canDrawOverlays(SplashActivity.this)){

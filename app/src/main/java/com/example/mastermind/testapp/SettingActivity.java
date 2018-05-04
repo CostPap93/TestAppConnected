@@ -49,7 +49,7 @@ public class SettingActivity  extends AppCompatActivity {
     SharedPreferences settingsPreferences;
     AccessServiceAPI m_AccessServiceAPI;
     CheckBox checkBox;
-    ListView lv,lv_offers;
+    ListView lv;
     Button btnSave, btnCancel;
     RadioButton radioButton, radioButton1, radioButton2;
     ArrayList<Boolean> checkIsChanged;
@@ -179,8 +179,7 @@ public class SettingActivity  extends AppCompatActivity {
 
         }  else {
             Toast.makeText(SettingActivity.this, "You Have To Be Connected To Reset", Toast.LENGTH_LONG).show();
-            Intent intent = new Intent(getApplicationContext(), SettingActivity.class);
-            startActivity(intent);
+
         }
 
     }
@@ -193,6 +192,7 @@ public class SettingActivity  extends AppCompatActivity {
     public void btnResetClicked(View view) throws ExecutionException, InterruptedException {
 
         if(isConn()) {
+            cancel();
             settingsPreferences.edit().clear().apply();
             settingsPreferences.edit().putLong("interval", 1000).apply();
             new TaskSetDefaultCateogries().execute().get();
@@ -210,10 +210,9 @@ public class SettingActivity  extends AppCompatActivity {
                     }
                 }
             }
+            start();
         }else{
             Toast.makeText(SettingActivity.this,"You Have To Be Connected To Reset",Toast.LENGTH_LONG).show();
-            Intent intent = new Intent(getApplicationContext(),SettingActivity.class);
-            startActivity(intent);
         }
     }
 
@@ -267,11 +266,6 @@ public class SettingActivity  extends AppCompatActivity {
         @Override
         protected ArrayList<JobOffer> doInBackground(String... params) {
 
-            try {
-                Thread.sleep(200);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
             Map<String, String> postParam = new HashMap<>();
             postParam.put("action", "showOffersFromCategory");
             postParam.put("jacat_id", params[0]);

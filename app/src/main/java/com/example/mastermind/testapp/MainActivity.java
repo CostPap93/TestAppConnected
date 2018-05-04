@@ -4,6 +4,7 @@ package com.example.mastermind.testapp;
 import android.app.Activity;
 import android.app.AlarmManager;
 import android.app.PendingIntent;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -61,6 +62,7 @@ public class MainActivity extends AppCompatActivity  {
     private BubblesManager bubblesManager;
     private NotificationBadge mBadge;
     private int count;
+    BroadcastReceiver br;
 
     NotificationCompat.Builder notification;
     private static final int uniqueID = 45612;
@@ -80,13 +82,14 @@ public class MainActivity extends AppCompatActivity  {
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         toolbar.setTitle("Datalabs");
         setSupportActionBar(toolbar);
+        br = new ConnectivityChangeReceiver();
         lv = findViewById(R.id.listView);
         m_AccessServiceAPI = new AccessServiceAPI();
         asyncOffers = new ArrayList<>();
         offers = new ArrayList<>();
         format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
-        registerReceiver(new ConnectivityChangeReceiver(),new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION));
+        registerReceiver(br,new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION));
 
         settingsPreferences = PreferenceManager.getDefaultSharedPreferences(this);
         System.out.println(settingsPreferences.getInt("numberOfCategories", 0) == 0);
@@ -124,7 +127,7 @@ public class MainActivity extends AppCompatActivity  {
         lv.setAdapter(jobOfferAdapter);
         System.out.println(settingsPreferences.getLong("interval",0));
 
-
+        unregisterReceiver(br);
     }
 
 
@@ -150,184 +153,6 @@ public class MainActivity extends AppCompatActivity  {
         }
 
         return super.onOptionsItemSelected(item);
-    }
-
-    public class TaskShowOffersFromCategories extends AsyncTask<String,Integer,ArrayList<JobOffer>> {
-        SharedPreferences settingsPreferences = PreferenceManager.getDefaultSharedPreferences(MyApplication.getAppContext());
-
-
-        protected void onPreExecute() {
-
-
-
-            super.onPreExecute();
-
-        }
-
-        @Override
-        protected void onPostExecute(ArrayList<JobOffer> fiveOffers) {
-
-
-            for(int j=0;j<5;j++){
-                settingsPreferences.edit().remove("offerId "+j).apply();
-                settingsPreferences.edit().remove("offerCatid "+j).apply();
-                settingsPreferences.edit().remove("offerTitle "+j).apply();
-                settingsPreferences.edit().remove("offerDate "+j).apply();
-                settingsPreferences.edit().remove("offerDownloaded "+j).apply();
-            }
-            for(int i=0;i<fiveOffers.size();i++) {
-                if(i<5) {
-
-                    settingsPreferences.edit().putInt("offerId " + i, fiveOffers.get(i).getId()).apply();
-                    settingsPreferences.edit().putInt("offerCatid " + i, fiveOffers.get(i).getCatid()).apply();
-                    settingsPreferences.edit().putString("offerTitle " + i, fiveOffers.get(i).getTitle()).apply();
-                    settingsPreferences.edit().putLong("offerDate " + i, fiveOffers.get(i).getDate().getTime()).apply();
-                    settingsPreferences.edit().putString("offerDownloaded " + i, fiveOffers.get(i).getDownloaded()).apply();
-                    System.out.println(settingsPreferences.getLong("offerDate " + i, 0));
-                    System.out.println(settingsPreferences.getString("offerTitle " + i, ""));
-                    settingsPreferences.edit().putInt("numberOfOffers",fiveOffers.size()).apply();
-                }else
-                    settingsPreferences.edit().putInt("numberOfOffers",5).apply();
-            }
-
-            settingsPreferences.edit().putLong("lastSeenDate",fiveOffers.get(settingsPreferences.getInt("numberOfOffers",0)-1).getDate().getTime()).apply();
-            System.out.println(settingsPreferences.getLong("lastSeenDate",0));
-
-            if (!(settingsPreferences.getInt("numberOfCheckedCategories", 0) == 0)) {
-                for (int i = 0; i < settingsPreferences.getInt("numberOfOffers", 0); i++) {
-
-                    JobOffer jobOffer = new JobOffer();
-                    jobOffer.setId(settingsPreferences.getInt("offerId " + i, 0));
-                    jobOffer.setCatid(settingsPreferences.getInt("offerCatid " + i, 0));
-                    jobOffer.setTitle(settingsPreferences.getString("offerTitle " + i, ""));
-                    jobOffer.setDate(new Date(settingsPreferences.getLong("offerDate " + i, 0)));
-
-                    jobOffer.setDownloaded(settingsPreferences.getString("offerDownloaded " + i, ""));
-                    offers.add(jobOffer);
-
-                }
-                System.out.println(offers.toString());
-
-                JobOfferAdapter jobOfferAdapter = new JobOfferAdapter(getApplicationContext(), offers);
-
-                lv.setAdapter(jobOfferAdapter);
-
-            }
-
-
-
-
-
-
-        }
-
-        @Override
-        protected ArrayList<JobOffer> doInBackground(String... params) {
-            Map<String, String> postParam = new HashMap<>();
-            postParam.put("action", "showOffersFromCategory");
-            postParam.put("jacat_id",params[0]);
-
-            try {
-                String jsonString = m_AccessServiceAPI.getJSONStringWithParam_POST("http://10.0.2.2/android/jobAds.php?", postParam);
-                JSONObject jsonObjectAll = new JSONObject(jsonString);
-                JSONArray jsonArray = jsonObjectAll.getJSONArray("offers");
-                int i = 0;
-
-                while(i<jsonArray.length() && i<5) {
-
-                    JSONObject jsonObjectCategory = jsonArray.getJSONObject(i);
-
-                    JobOffer offer = new JobOffer();
-                    offer.setId(Integer.valueOf(jsonObjectCategory.getString("jad_id")));
-                    offer.setCatid(Integer.valueOf(jsonObjectCategory.getString("jad_catid")));
-                    offer.setTitle(jsonObjectCategory.getString("jad_title"));
-                    offer.setDate(format.parse(jsonObjectCategory.getString("jad_date")));
-                    offer.setDownloaded(jsonObjectCategory.getString("jad_downloaded"));
-                    System.out.println(offer.getTitle() + " first time");
-
-                    asyncOffers.add(offer);
-
-
-                    Collections.sort(asyncOffers, new Comparator<JobOffer>() {
-                        @Override
-                        public int compare(JobOffer jobOffer, JobOffer t1) {
-                            if(jobOffer.getDate().getTime()-t1.getDate().getTime()<0)
-                                return 1;
-                            else if(jobOffer.getDate().getTime()-t1.getDate().getTime()==0)
-                                return 0;
-                            else
-                                return -1;
-                        }
-                    });
-                    for(int x=0;x<asyncOffers.size();x++) {
-                        System.out.println(asyncOffers.get(x).getTitle());
-                    }
-
-                    i++;
-                }
-
-            } catch (JSONException e) {
-                e.printStackTrace();
-            } catch (IOException e) {
-                e.printStackTrace();
-            } catch (ParseException e) {
-                e.printStackTrace();
-            }
-            return asyncOffers;
-        }
-
-    }
-
-    public boolean isConn(){
-        ConnectivityManager connectivityManager = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
-        NetworkInfo networkInfo = connectivityManager.getNetworkInfo(ConnectivityManager.TYPE_WIFI);
-        boolean isWifiConn = networkInfo.isConnected();
-        networkInfo = connectivityManager.getNetworkInfo(ConnectivityManager.TYPE_MOBILE);
-        boolean isMobileConn = networkInfo.isConnected();
-        Log.d("connection", "Wifi connected: " + isWifiConn);
-        Log.d("connection", "Mobile connected: " + isMobileConn);
-        return isWifiConn || isMobileConn;
-    }
-
-    private void initBubble(){
-        bubblesManager = new BubblesManager.Builder(this)
-                .setTrashLayout(R.layout.bubble_remove)
-                .setInitializationCallback(new OnInitializedCallback() {
-                    @Override
-                    public void onInitialized() {
-                        count=0;
-                    }
-                }).build();
-        bubblesManager.initialize();
-    }
-
-    private void addNewBubble(int count){
-        BubbleLayout bubbleView = (BubbleLayout) LayoutInflater.from(this)
-                .inflate(R.layout.bubble_layout,null);
-        mBadge = (NotificationBadge) bubbleView.findViewById(R.id.badge);
-        mBadge.setNumber(count);
-
-        bubbleView.setOnBubbleRemoveListener(new BubbleLayout.OnBubbleRemoveListener() {
-            @Override
-            public void onBubbleRemoved(BubbleLayout bubble) {
-                Toast.makeText(MainActivity.this, "Removed", Toast.LENGTH_SHORT).show();
-            }
-        });
-
-        bubbleView.setOnBubbleClickListener(new BubbleLayout.OnBubbleClickListener() {
-            @Override
-            public void onBubbleClick(BubbleLayout bubble) {
-                Toast.makeText(MainActivity.this,"Clicked",Toast.LENGTH_SHORT).show();
-                Intent intent = new Intent(MainActivity.this,MainActivity.class);
-                startActivity(intent);
-
-            }
-        });
-
-
-        bubblesManager.addBubble(bubbleView,60,20);
-
-
     }
 
 }

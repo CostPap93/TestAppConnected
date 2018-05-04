@@ -87,7 +87,11 @@ public class AlarmReceiver extends BroadcastReceiver {
             for (int j = 0; j < settingsPreferences.getInt("numberOfCheckedCategories", 0); j++) {
                 new TaskShowOffersFromCategories().execute(String.valueOf(settingsPreferences.getInt("checkedCategoryId " + j, 0)));
             }
+        }else{
+            settingsPreferences.edit().putBoolean("makeRequest",true).apply();
+
         }
+
 
     }
 
@@ -176,6 +180,7 @@ public class AlarmReceiver extends BroadcastReceiver {
                 NotificationManager nm = (NotificationManager) MyApplication.getAppContext().getSystemService(NOTIFICATION_SERVICE);
                 nm.notify(uniqueID, notification.build());
                 addNewBubble();
+                settingsPreferences.edit().putBoolean("makeRequest",false).apply();
 
             }
 
